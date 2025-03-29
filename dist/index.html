@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>大头贴拍照程序📷</title>
+  
+
+</head>
+<body>
+<!-- partial:index.partial.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自适应边框大头贴</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #ff6b8b;
+            margin-bottom: 20px;
+            font-size: 2.2rem;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .preview-wrapper {
+            display: inline-block;
+            position: relative;
+            margin: 0 auto 25px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border: 8px solid white;
+            max-width: 100%;
+        }
+        
+        #cameraContainer {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #cameraFeed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            display: block;
+        }
+        
+        #borderOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .upload-area {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #ff6b8b;
+            background: #fff;
+        }
+        
+        .upload-label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #ff6b8b, #ff8e53);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(255, 107, 139, 0.3);
+            margin: 10px;
+            min-width: 180px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(255, 107, 139, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            transform: none;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        
+        .result-container {
+            margin-top: 30px;
+            display: none;
+        }
+        
+        .result-image {
+            max-width: 100%;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            border: 8px solid white;
+            margin-top: 20px;
+        }
+        
+        .countdown {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #ff6b8b;
+            margin: 15px 0;
+            height: 40px;
+        }
+        
+        .instructions {
+            color: #666;
+            margin: 20px 0;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✨ 自适应边框大头贴 ✨</h1>
+        
+        <p class="instructions">上传边框后，拍摄框将自动调整为边框大小</p>
+        
+        <div class="preview-wrapper" id="previewWrapper">
+            <div id="cameraContainer">
+                <video id="cameraFeed" autoplay playsinline></video>
+                <img id="borderOverlay" src="" alt="边框">
+            </div>
+        </div>
+        
+        <div class="countdown" id="countdown"></div>
+        
+        <div class="upload-area">
+            <label for="borderUpload" class="upload-label">选择边框 (PNG格式)</label>
+            <input type="file" id="borderUpload" accept=".png" class="btn">
+        </div>
+        
+        <button id="captureBtn" class="btn" disabled>拍 照</button>
+        
+        <div class="result-container" id="resultContainer">
+            <h2>你的精美大头贴</h2>
+            <img id="resultImage" class="result-image" src="" alt="拍摄结果">
+            <button id="downloadBtn" class="btn">下载图片</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM元素
+        const cameraFeed = document.getElementById('cameraFeed');
+        const borderUpload = document.getElementById('borderUpload');
+        const borderOverlay = document.getElementById('borderOverlay');
+        const captureBtn = document.getElementById('captureBtn');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultImage = document.getElementById('resultImage');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const countdown = document.getElementById('countdown');
+        const previewWrapper = document.getElementById('previewWrapper');
+        const cameraContainer = document.getElementById('cameraContainer');
+        
+        // 当前边框尺寸
+        let borderWidth = 0;
+        let borderHeight = 0;
+        
+        // 初始化摄像头
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 }, 
+                        height: { ideal: 720 },
+                        facingMode: "user" 
+                    } 
+                });
+                cameraFeed.srcObject = stream;
+                
+                // 摄像头准备好后设置默认尺寸
+                cameraFeed.onloadedmetadata = () => {
+                    if (borderWidth === 0 && borderHeight === 0) {
+                        // 如果没有上传边框，使用摄像头默认比例(4:3)
+                        setPreviewSize(400, 300);
+                    }
+                };
+            } catch (err) {
+                console.error("摄像头访问失败:", err);
+                alert("无法访问摄像头，请确保已授予摄像头权限");
+            }
+        }
+        
+        // 设置预览区域大小
+        function setPreviewSize(width, height) {
+            previewWrapper.style.width = width + 'px';
+            previewWrapper.style.height = height + 'px';
+            cameraContainer.style.width = width + 'px';
+            cameraContainer.style.height = height + 'px';
+            
+            // 保持摄像头视频比例
+            if (cameraFeed.videoWidth > 0 && cameraFeed.videoHeight > 0) {
+                const videoRatio = cameraFeed.videoWidth / cameraFeed.videoHeight;
+                const containerRatio = width / height;
+                
+                if (containerRatio > videoRatio) {
+                    // 容器比视频宽，以高度为准
+                    cameraFeed.style.width = (height * videoRatio) + 'px';
+                    cameraFeed.style.height = height + 'px';
+                } else {
+                    // 容器比视频高，以宽度为准
+                    cameraFeed.style.width = width + 'px';
+                    cameraFeed.style.height = (width / videoRatio) + 'px';
+                }
+            }
+        }
+        
+        // 上传边框处理
+        borderUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.type === "image/png") {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        borderOverlay.onload = function() {
+                            // 获取边框图片的实际尺寸
+                            borderWidth = this.naturalWidth;
+                            borderHeight = this.naturalHeight;
+                            
+                            // 调整预览区域大小以匹配边框
+                            setPreviewSize(borderWidth, borderHeight);
+                            
+                            // 显示边框
+                            borderOverlay.src = event.target.result;
+                            captureBtn.disabled = false;
+                        };
+                        
+                        // 设置src触发onload
+                        borderOverlay.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    alert("请上传PNG格式的边框图片");
+                    borderUpload.value = "";
+                }
+            }
+        });
+        
+        // 拍照功能
+        captureBtn.addEventListener('click', function() {
+            startCountdown(3); // 3秒倒计时
+        });
+        
+        // 倒计时功能
+        function startCountdown(seconds) {
+            captureBtn.disabled = true;
+            let count = seconds;
+            
+            countdown.textContent = `拍照倒计时: ${count}秒`;
+            
+            const timer = setInterval(() => {
+                count--;
+                countdown.textContent = `拍照倒计时: ${count}秒`;
+                
+                if (count <= 0) {
+                    clearInterval(timer);
+                    countdown.textContent = "拍照中...";
+                    
+                    setTimeout(() => {
+                        takePhoto();
+                        countdown.textContent = "";
+                        captureBtn.disabled = false;
+                    }, 300);
+                }
+            }, 1000);
+        }
+        
+        // 拍摄照片
+        function takePhoto() {
+            const canvas = document.createElement('canvas');
+            canvas.width = borderWidth || cameraFeed.videoWidth;
+            canvas.height = borderHeight || cameraFeed.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // 计算绘制区域以保持比例
+            const videoRatio = cameraFeed.videoWidth / cameraFeed.videoHeight;
+            const canvasRatio = canvas.width / canvas.height;
+            
+            let sourceX = 0, sourceY = 0;
+            let sourceWidth = cameraFeed.videoWidth, sourceHeight = cameraFeed.videoHeight;
+            
+            if (canvasRatio > videoRatio) {
+                // 画布比视频宽，裁剪视频高度
+                sourceHeight = cameraFeed.videoWidth / canvasRatio;
+                sourceY = (cameraFeed.videoHeight - sourceHeight) / 2;
+            } else {
+                // 画布比视频高，裁剪视频宽度
+                sourceWidth = cameraFeed.videoHeight * canvasRatio;
+                sourceX = (cameraFeed.videoWidth - sourceWidth) / 2;
+            }
+            
+            // 绘制视频帧(居中裁剪)
+            ctx.save();
+            ctx.scale(-1, 1); // 水平翻转
+            ctx.drawImage(
+                cameraFeed, 
+                sourceX, sourceY, sourceWidth, sourceHeight, // 源图像裁剪区域
+                -canvas.width, 0, canvas.width, canvas.height // 画布绘制区域
+            );
+            ctx.restore();
+            
+            // 添加边框
+            if (borderOverlay.src) {
+                ctx.drawImage(borderOverlay, 0, 0, canvas.width, canvas.height);
+            }
+            
+            // 显示结果
+            resultImage.src = canvas.toDataURL('image/png');
+            resultContainer.style.display = 'block';
+            
+            // 滚动到结果
+            resultContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // 下载图片
+        downloadBtn.addEventListener('click', function() {
+            const link = document.createElement('a');
+            link.download = '我的大头贴.png';
+            link.href = resultImage.src;
+            link.click();
+        });
+        
+        // 初始化
+        initCamera();
+    </script>
+</body>
+</html>
+<!-- partial -->
+  
+</body>
+</html>
